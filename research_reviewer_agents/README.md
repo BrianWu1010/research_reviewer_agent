@@ -1,5 +1,52 @@
+# 🧠 Research Reviewer Agents
 
-Example output:
+A multi-agent research assistant that automates the process of answering complex research questions using planning, retrieval, summarization, critique, and replanning.
+
+## 🚀 Features
+
+- **Planner Agent**: Decomposes the user's query into keywords and refined search phrases.
+- **Retriever Agent**: Searches arXiv using those phrases to retrieve relevant papers.
+- **Summarizer Agent**: Summarizes key insights from the papers into a markdown file.
+- **Critic Agent**: Evaluates whether the summary answers the original question; if not, suggests a better reformulation and triggers a replanning loop.
+
+## 🔁 Workflow
+
+1. User submits a query.
+2. Planner generates search phrases.
+3. Retriever fetches papers based on those phrases.
+4. Summarizer produces a summary of the papers.
+5. Critic evaluates the summary.
+6. If verdict is “bad,” loop begins again using the Critic’s suggestion.
+
+## 📦 Setup
+
+```bash
+conda env create -f environment.yml
+conda activate research_agents
+```
+
+## ▶️ Run the System
+
+```bash
+python main.py
+```
+
+## 🗂️ Output
+
+- Summaries are saved in: `output/summary_<timestamp>.md`
+- Retrieved papers in: `data/papers.json`
+
+## 💡 To Do
+
+- Add Feedback Agent
+- Improve Critic with LLM chaining
+- Add UI for user interaction
+
+## 👤 Author
+
+Boyuan Wu
+
+## Example output:
 "
 🔁 Attempt #1
 
