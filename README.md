@@ -1,6 +1,7 @@
 # 🧠 Research Reviewer Agents
 
 A multi-agent research assistant that automates the process of answering complex research questions using planning, retrieval, summarization, critique, and replanning.
+<img width="608" height="642" alt="Screenshot 2025-07-31 at 3 50 24 PM" src="https://github.com/user-attachments/assets/f1b4939b-1f47-4a28-99bc-274be47ef82d" />
 
 ## 🚀 Features
 
