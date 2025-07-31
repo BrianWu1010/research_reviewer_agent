@@ -1,0 +1,13 @@
+name: research_agents
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - python-dotenv
+  - pip
+  - pip:
+      - openai
+      - arxiv
+      - python-dotenv
+      - rich
