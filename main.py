@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 
+import openai
 from rich.console import Console
 
 from pipeline import ReviewConfig, run_review
@@ -39,7 +40,10 @@ def main() -> None:
         min_score=args.min_score,
         max_papers=args.max_papers,
     )
-    result = run_review(question, config, log=console.print)
+    try:
+        result = run_review(question, config, log=console.print)
+    except openai.APIStatusError as err:
+        sys.exit(f"OpenAI API error ({err.status_code}): {err.message}")
     run_dir = write_report(result, args.output_dir)
 
     console.print(f"\n[green]Report written to {run_dir / 'report.md'}[/green]")
