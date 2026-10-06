@@ -1,37 +1,31 @@
-import json
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+from models import Paper, PaperNotes
+from tools.llm import chat_json
 
-def summarize_paper(paper, prompt_template):
-    prompt = prompt_template + "\n\n" + json.dumps(paper, indent=2)
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+SYSTEM = """You are the Summarizer in a multi-agent literature review system.
+Extract structured notes from one arXiv paper, focused on a specific research question.
+
+You only have the title and abstract. Strict grounding rules:
+- Use only information stated in the abstract. Do not invent numbers, datasets, or baselines.
+- If the abstract does not state something (e.g. limitations), leave that field empty
+  rather than guessing.
+- "relevance" should explain concretely what this paper contributes to answering the question."""
+
+
+def summarize_paper(question: str, paper: Paper) -> PaperNotes:
+    user = (
+        f"Research question:\n{question}\n\n"
+        f"paper_id: {paper.id}\n"
+        f"title: {paper.title}\n"
+        f"published: {paper.published}\n"
+        f"abstract: {paper.abstract}"
     )
-    return response.choices[0].message.content
-
-def run_summarizer():
-    with open("data/papers.json") as f:
-        papers = json.load(f)
-
-    with open("prompts/summarizer_prompt.txt") as f:
-        template = f.read()
-
-    summaries = []
-    for paper in papers:
-        summary = summarize_paper(paper, template)
-        summaries.append(summary)
+    notes = chat_json(SYSTEM, user, PaperNotes)
+    notes.paper_id = paper.id
+    return notes
 
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_file = f"output/summary_{timestamp}.md"
-
-    with open(output_file, "w") as f:
-        for summary in summaries:
-            f.write(summary + "\n\n---\n\n")
+def run_summarizer(question: str, papers: list[Paper], max_workers: int = 8) -> list[PaperNotes]:
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        return list(pool.map(lambda paper: summarize_paper(question, paper), papers))

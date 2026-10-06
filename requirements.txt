@@ -1,0 +1,6 @@
+openai>=1.40
+anthropic>=0.40
+arxiv>=2.1
+pydantic>=2.5
+python-dotenv>=1.0
+rich>=13.0
