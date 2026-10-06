@@ -1,62 +1,40 @@
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-import ast
-from itertools import combinations
+from models import SearchPlan
+from tools.llm import chat_json
 
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+SYSTEM = """You are the Planner in a multi-agent literature review system.
+You turn a research question into search queries for the arXiv API.
 
-def QueryToKeywords(user_query):
-    prompt = f"""
-You are a research planning agent.
+arXiv query syntax:
+- Field prefixes: ti: (title), abs: (abstract), cat: (category, e.g. cat:cs.LG).
+- Boolean operators in UPPERCASE: AND, OR, ANDNOT. Group with parentheses.
+- Quote multi-word phrases: abs:"reinforcement learning".
+- Bare unprefixed words are matched loosely and return noisy results, so always use field prefixes.
 
-Your job is to break down the following research question into 3–6 search keywords.
+Good query: abs:"intrinsic motivation" AND abs:exploration AND abs:"reinforcement learning"
+Good query: (ti:curiosity OR ti:novelty) AND abs:"sparse reward"
 
-Respond in a Python list of strings. Be concise and focused.
-
-Query:
-\"\"\"{user_query}\"\"\"
-"""
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    output = response.choices[0].message.content
-    return ast.literal_eval(output)
+Guidelines:
+- Each query should target a different facet of the question (mechanisms, methods, evaluations, failure modes, ...).
+- Use the vocabulary researchers actually use, including common synonyms (combine them with OR).
+- Combine 2-4 concepts with AND. Too many ANDs returns nothing; too few returns noise."""
 
 
-def SearchKeywords(keywords,user_query):
-    """
-    Use ChatGPT to form keywords for paper searching in retriever agent.
-    """
+def run_planner(
+    question: str,
+    num_queries: int = 4,
+    missing_aspects: list[str] | None = None,
+    previous_queries: list[str] | None = None,
+) -> list[str]:
+    user = f"Research question:\n{question}\n\nWrite {num_queries} arXiv queries."
+    if missing_aspects:
+        gaps = "\n".join(f"- {aspect}" for aspect in missing_aspects)
+        user += (
+            "\n\nA reviewer found the current literature review is missing these aspects. "
+            f"Target them specifically:\n{gaps}"
+        )
+    if previous_queries:
+        done = "\n".join(f"- {query}" for query in previous_queries)
+        user += f"\n\nThese queries were already run; do not repeat them:\n{done}"
 
-    prompt = f"""
-You are a helpful AI research assistant.
-
-You will be given a list of technical keyword groups. 
-Your task is to rewrite them into clear, cobination of keywords connected by "AND" that could be used to retrieve academic papers, 
-Make sure the combination of keywords capture the idea of the question: {user_query}.
-
-Input (a list of phrases):
-{keywords}
-
-Respond with a Python list of 3 search phrases.
-"""
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
-    )
-    output = response.choices[0].message.content
-    return ast.literal_eval(output)
-
-def FormNewSearchKeyWords(keywords,user_query):
-    refined = SearchKeywords(keywords,user_query)
-    return refined
-
-def run_planner(user_query):
-    keywords = QueryToKeywords(user_query)
-    search_phrases = FormNewSearchKeyWords(keywords,user_query)
-    return search_phrases
+    plan = chat_json(SYSTEM, user, SearchPlan)
+    return [query.strip() for query in plan.queries if query.strip()][:num_queries]

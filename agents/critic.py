@@ -1,48 +1,20 @@
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-import json
+from models import Critique, Paper
+from tools.llm import chat_json
 
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+SYSTEM = """You are the Critic in a multi-agent literature review system.
+You review a literature-based answer to a research question and decide whether more searching is needed.
 
-def run_critic(user_query, summary_text):
-    prompt = f'''
-You are a Critic Agent in a multi-agent research system.
+Evaluate:
+- Coverage: does it address every part of the question?
+- Grounding: are claims supported by the cited papers, without overreach?
+- Evidence strength: is it based on enough relevant papers, or on one or two?
 
-Your job is to evaluate whether the following paper summaries provide a satisfactory answer to the user's original research query.
+verdict = "sufficient" if a researcher would find this a solid starting answer; otherwise "needs_more".
+If "needs_more", list specific missing_aspects (topics, method families, or evidence types)
+that a new literature search should target. Keep each aspect short and searchable."""
 
-Respond in this exact JSON format:
 
-{{
-  "verdict": "good",
-  "justification": "your reasoning here",
-  "suggestion": "optional suggestion for improvement if verdict is bad"
-}}
-
----
-
-User Query:
-{user_query}
-
-Paper Summaries:
-{summary_text}
-
-Evaluate based on:
-- Relevance to the query
-- Clarity and usefulness of the summary
-- Coverage of the research question
-'''
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-    output = response.choices[0].message.content
-
-    try:
-        return json.loads(output)
-    except:
-        print("⚠️ Failed to parse Critic response. Raw output:")
-        print(output)
-        return {"verdict": "bad", "justification": "Parse error", "suggestion": "Improve output format"}
+def run_critic(question: str, answer: str, papers: list[Paper]) -> Critique:
+    titles = "\n".join(f"[{number}] {paper.title}" for number, paper in enumerate(papers, start=1))
+    user = f"Research question:\n{question}\n\nPapers used:\n{titles}\n\nAnswer under review:\n{answer}"
+    return chat_json(SYSTEM, user, Critique)

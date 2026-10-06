@@ -1,71 +1,97 @@
-# 🧠 Research Reviewer Agents
+# Research Reviewer Agents
 
-A multi-agent research assistant that automates the process of answering complex research questions using planning, retrieval, summarization, critique, and replanning.
-<img width="608" height="642" alt="Screenshot 2025-07-31 at 3 50 24 PM" src="https://github.com/user-attachments/assets/f1b4939b-1f47-4a28-99bc-274be47ef82d" />
+A multi-agent system that answers a research question from the arXiv literature. It searches, filters for relevance, takes grounded notes, writes a cited answer, and keeps searching until a reviewer agent judges the answer sufficient.
 
-## 🚀 Features
+> **Looking for the original (2025) version?** It is preserved at the [`v1.0` tag](../../tree/v1.0).
+> See [Changes since v1](#changes-since-v1) below.
 
-- **Planner Agent**: Decomposes the user's query into keywords and refined search phrases.
-- **Retriever Agent**: Searches arXiv using those phrases to retrieve relevant papers.
-- **Summarizer Agent**: Summarizes key insights from the papers into a markdown file.
-- **Critic Agent**: Evaluates whether the summary answers the original question; if not, suggests a better reformulation and triggers a replanning loop.
+## How it works
 
-## 🔁 Workflow
+```mermaid
+flowchart LR
+    Q[Question] --> P[Planner]
+    P -->|arXiv queries| R[Retriever]
+    R -->|new candidates| S[Screener]
+    S -->|relevant papers| M[Summarizer]
+    M -->|notes| Y[Synthesizer]
+    Y -->|cited answer| C[Critic]
+    C -->|missing aspects| P
+    C -->|sufficient| O[report.md]
+```
 
-1. User submits a query.
-2. Planner generates search phrases.
-3. Retriever fetches papers based on those phrases.
-4. Summarizer produces a summary of the papers.
-5. Critic evaluates the summary.
-6. If verdict is “bad,” loop begins again using the Critic’s suggestion.
+| Agent | Job |
+| --- | --- |
+| Planner | Writes fielded arXiv queries (`abs:"..." AND ti:...`) for different facets of the question; in later rounds it targets the gaps the Critic found. |
+| Retriever | Runs the queries against arXiv (sorted by relevance) and deduplicates against everything seen so far. |
+| Screener | Scores each new paper 0-10 for relevance from its abstract; only papers above `--min-score` move on. |
+| Summarizer | Extracts question-focused notes from each abstract, without inventing details the abstract doesn't state. |
+| Synthesizer | Writes an answer organized by theme with inline citations `[n]`, including open questions and gaps. |
+| Critic | Judges coverage, grounding, and evidence strength of the answer against the **original** question; if insufficient, lists missing aspects for the next round. |
 
-## 📦 Setup
+The loop stops when the Critic is satisfied, when a round finds no new relevant papers, or after `--max-rounds`.
+
+## Setup
 
 ```bash
 conda env create -f environment.yml
 conda activate research_agents
+cp .env.example .env   # then put your OpenAI API key in .env
 ```
 
-## ▶️ Run the System
+Or with pip: `pip install -r requirements.txt`.
+
+Any OpenAI-compatible endpoint works by setting `OPENAI_BASE_URL` and `OPENAI_MODEL`.
+
+## Usage
 
 ```bash
-python main.py
+python main.py "How does curiosity improve exploration in reinforcement learning?"
 ```
 
-## 🗂️ Output
+Options:
 
-- Summaries are saved in: `output/summary_<timestamp>.md`
-- Retrieved papers in: `data/papers.json`
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--max-rounds` | 3 | Maximum search/critique rounds |
+| `--queries-per-round` | 4 | arXiv queries the Planner writes per round |
+| `--results-per-query` | 10 | arXiv results fetched per query |
+| `--min-score` | 6 | Relevance cutoff (0-10) for a paper to be used |
+| `--max-papers` | 12 | Maximum papers cited in the answer |
+| `--model` | `$OPENAI_MODEL` or `gpt-4.1-mini` | Chat model |
+| `--output-dir` | `output` | Where reports are written |
 
-## 💡 To Do
+## Output
 
-- Add Feedback Agent
-- Improve Critic with LLM chaining
-- Add UI for user interaction
+Each run creates `output/<timestamp>_<question-slug>/` containing:
 
-## 👤 Author
+- `report.md`: the cited answer, the Critic's assessment, references, per-paper notes, and the search log.
+- `run.json`: the full trace, including every candidate paper with its relevance score and reason. This is useful for debugging retrieval.
+
+## Tests
+
+```bash
+pytest
+```
+
+The tests replace the agents with stubs, so they run offline without an API key.
+
+## Changes since v1
+
+- **Relevance-sorted retrieval.** v1 sorted arXiv results by submission date, so it returned the newest papers matching any keyword rather than the most relevant ones.
+- **Relevance screening.** Off-topic papers are scored out before summarization instead of being summarized and passed to the Critic.
+- **An actual answer.** A Synthesizer writes a cited answer to the question; v1 only produced a list of per-paper summaries.
+- **Grounded summaries.** Notes are restricted to what the abstract states (v1 asked for experiments and limitations an abstract usually doesn't contain).
+- **Critic feedback that doesn't drift.** v1 replaced the user's question with the Critic's suggestion. Now the original question is kept, and the Critic's missing aspects drive new searches. Papers accumulate across rounds.
+- **Robustness.** JSON-mode responses validated with Pydantic (with automatic repair) replace `ast.literal_eval`, API calls retry, and LLM calls run in parallel.
+- **Usability.** CLI arguments replace the hardcoded question, the model is configurable, and each run gets its own output folder.
+
+## Ideas / roadmap
+
+- Full-text retrieval (PDF parsing) for papers that pass screening
+- Citation-graph expansion via Semantic Scholar
+- Additional sources (OpenReview, PubMed)
+- Simple web UI
+
+## Author
 
 Boyuan Wu
-
-## Example output:
-"
-🔁 Attempt #1
-
-🧠 Planning...
- - curiosity AND improvement AND exploration in reinforcement learning
- - impact of curiosity on exploration enhancement in reinforcement learning
- - curiosity-driven exploration AND performance improvement in reinforcement learning
-🔍 Retrieving papers...
-
-✅ Retrieved 9 unique papers.
-
-📝 Summarizing papers...
-
-🤔 Critiquing summary...
-
-🧪 Verdict: good
-
-📋 Justification: The papers 'From Curiosity to Competence: How World Models Interact with the Dynamics of Exploration', 'Optimizing Model Splitting and Device Task Assignment for Deceptive Signal Assisted Private Multi-hop Split Learning', 'Beyond-Expert Performance with Limited Demonstrations: Efficient Imitation Learning with Double Exploration', and 'Deep reinforcement learning for efficient exploration of combinatorial structural design spaces' provide relevant information to the user's query about how curiosity improves exploration in reinforcement learning. They discuss different methods and experiments that demonstrate the role of curiosity in improving exploration and performance in reinforcement learning tasks. The summaries are clear, detailed, and cover the key contributions, methods, experiments, findings, and limitations of the research.
-
-✅ Summary is good enough. Finished.
-"
