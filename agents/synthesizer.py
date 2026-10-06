@@ -10,6 +10,8 @@ Requirements:
 - Point out agreements, disagreements, and open questions across papers.
 - If the evidence is thin or only partially addresses the question, say so explicitly.
 - Do not use outside knowledge to fill gaps.
+- Write in the voice of a literature review: refer to "the papers" or "this literature",
+  never to "the notes" or "the abstracts", and do not use first person.
 - Output Markdown with these sections: "## Answer" (2-4 sentence direct answer),
   "## Key findings", "## Open questions and gaps". No reference list; it is added separately."""
 

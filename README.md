@@ -5,6 +5,11 @@ A multi-agent system that answers a research question from the arXiv literature.
 > **Looking for the original (2025) version?** It is preserved at the [`v1.0` tag](../../tree/v1.0).
 > See [Changes since v1](#changes-since-v1) below.
 
+![Demo: a two-round review of LLM hallucination-reduction techniques](demo/demo.gif)
+
+<sub>Real run with Claude Sonnet 5.5, with model wait times shortened (about 2 minutes in real time). Re-record it with [`demo/demo.sh`](demo/demo.sh).
+Full output: [`examples/llm-hallucination.md`](examples/llm-hallucination.md).</sub>
+
 ## How it works
 
 ```mermaid
@@ -73,7 +78,10 @@ Each run creates `output/<timestamp>_<question-slug>/` containing:
 - `report.md`: the cited answer, the Critic's assessment, references, per-paper notes, and the search log.
 - `run.json`: the full trace, including every candidate paper with its relevance score and reason. This is useful for debugging retrieval.
 
-See [`examples/curiosity-exploration-rl.md`](examples/curiosity-exploration-rl.md) for a real report. It took 3 rounds and about 2 minutes with Claude Sonnet 5.5.
+Example reports, both from Claude Sonnet 5.5:
+
+- [`examples/curiosity-exploration-rl.md`](examples/curiosity-exploration-rl.md): "How does curiosity improve exploration in reinforcement learning?" (3 rounds)
+- [`examples/llm-hallucination.md`](examples/llm-hallucination.md): "What techniques reduce hallucination in large language models?" (2 rounds)
 
 ## Tests
 

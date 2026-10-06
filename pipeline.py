@@ -1,5 +1,8 @@
+import re
 from dataclasses import dataclass, field
 from typing import Callable
+
+from rich.markup import escape
 
 from agents.critic import run_critic
 from agents.planner import run_planner
@@ -44,14 +47,30 @@ class ReviewResult:
         return critiques[-1] if critiques else None
 
 
+def _truncate(text: str, width: int) -> str:
+    text = " ".join(text.split())
+    return escape(text if len(text) <= width else text[: width - 3] + "...")
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def requested_by_critic(papers: list[Paper], missing_aspects: list[str]) -> set[str]:
+    """IDs of papers whose title the critic named in its missing aspects."""
+    aspects = [_normalize(aspect) for aspect in missing_aspects]
+    return {paper.id for paper in papers if any(_normalize(paper.title) in aspect for aspect in aspects)}
+
+
 def select_papers(
     candidates: dict[str, Paper],
     scores: dict[str, RelevanceScore],
     min_score: int,
     max_papers: int,
+    priority_ids: set[str] = frozenset(),
 ) -> list[Paper]:
     relevant = [paper for paper in candidates.values() if paper.id in scores and scores[paper.id].score >= min_score]
-    relevant.sort(key=lambda paper: scores[paper.id].score, reverse=True)
+    relevant.sort(key=lambda paper: (paper.id in priority_ids, scores[paper.id].score), reverse=True)
     return relevant[:max_papers]
 
 
@@ -64,6 +83,7 @@ def run_review(
     result = ReviewResult(question=question, answer="", papers=[], notes={}, scores={}, candidates={})
     queries_run: list[str] = []
     missing_aspects: list[str] | None = None
+    requested_ids: set[str] = set()
 
     for number in range(1, config.max_rounds + 1):
         log(f"\n[bold]Round {number}[/bold]")
@@ -72,7 +92,7 @@ def run_review(
         queries = run_planner(question, config.queries_per_round, missing_aspects, queries_run)
         queries_run.extend(queries)
         for query in queries:
-            log(f"  - {query}")
+            log(f"  [dim]- {_truncate(query, 90)}[/dim]")
 
         log("Searching arXiv...")
         new_papers = run_retriever(queries, set(result.candidates), config.results_per_query)
@@ -82,8 +102,11 @@ def run_review(
         if new_papers:
             log("Screening for relevance...")
             result.scores.update(run_screener(question, new_papers))
+            requested_ids |= requested_by_critic(new_papers, missing_aspects or [])
 
-        selected = select_papers(result.candidates, result.scores, config.min_score, config.max_papers)
+        selected = select_papers(
+            result.candidates, result.scores, config.min_score, config.max_papers, requested_ids
+        )
         round_log = RoundLog(number, queries, len(new_papers), [paper.id for paper in selected])
         result.rounds.append(round_log)
         log(f"  {len(selected)} papers scored >= {config.min_score}")
@@ -107,13 +130,15 @@ def run_review(
         log("Critiquing answer...")
         critique = run_critic(question, result.answer, selected)
         round_log.critique = critique
-        log(f"  verdict: {critique.verdict} (score {critique.score}/10)")
-        log(f"  {critique.justification}")
+        color = "green" if critique.verdict == "sufficient" else "yellow"
+        log(f"  verdict: [{color}]{critique.verdict}[/{color}] (score {critique.score}/10)")
 
         if critique.verdict == "sufficient":
             break
         missing_aspects = critique.missing_aspects
-        for aspect in missing_aspects:
-            log(f"  missing: {aspect}")
+        for aspect in missing_aspects[:3]:
+            log(f"  [dim]missing: {_truncate(aspect, 85)}[/dim]")
+        if len(missing_aspects) > 3:
+            log(f"  [dim]...and {len(missing_aspects) - 3} more (see report)[/dim]")
 
     return result

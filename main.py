@@ -3,6 +3,7 @@ import os
 import sys
 
 from rich.console import Console
+from rich.markdown import Markdown
 
 from pipeline import ReviewConfig, run_review
 from report import write_report
@@ -50,7 +51,12 @@ def main() -> None:
         sys.exit(f"{provider()} API error ({err.status_code}): {err.message}")
     run_dir = write_report(result, args.output_dir)
 
-    console.print(f"\n[green]Report written to {run_dir / 'report.md'}[/green]")
+    if result.answer:
+        console.print()
+        console.print(Markdown(result.answer.split("## Key findings")[0].strip()))
+    console.print(
+        f"\n[green]Full report ({len(result.papers)} papers): {run_dir / 'report.md'}[/green]"
+    )
 
 
 if __name__ == "__main__":

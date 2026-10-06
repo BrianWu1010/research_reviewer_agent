@@ -30,6 +30,18 @@ def test_select_papers_filters_and_ranks():
     assert [paper.id for paper in selected] == ["b", "c"]
 
 
+def test_papers_requested_by_critic_get_priority():
+    candidates = {pid: make_paper(pid) for pid in ["a", "b", "c"]}
+    candidates["c"].title = "Self-RAG: Learning to Retrieve, Generate, and Critique"
+    scores = {pid: RelevanceScore(paper_id=pid, score=s, reason="") for pid, s in [("a", 9), ("b", 9), ("c", 7)]}
+    requested = pipeline.requested_by_critic(
+        list(candidates.values()), ["Self-RAG: learning to retrieve, generate, and critique (Asai et al.)"]
+    )
+    assert requested == {"c"}
+    selected = select_papers(candidates, scores, min_score=6, max_papers=2, priority_ids=requested)
+    assert [paper.id for paper in selected] == ["c", "a"]
+
+
 def test_loop_keeps_original_question_and_feeds_back_gaps(monkeypatch):
     planner_calls = []
     searches = iter([[make_paper("1"), make_paper("2")], [make_paper("3")]])
