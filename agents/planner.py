@@ -16,7 +16,11 @@ Good query: (ti:curiosity OR ti:novelty) AND abs:"sparse reward"
 Guidelines:
 - Each query should target a different facet of the question (mechanisms, methods, evaluations, failure modes, ...).
 - Use the vocabulary researchers actually use, including common synonyms (combine them with OR).
-- Combine 2-4 concepts with AND. Too many ANDs returns nothing; too few returns noise."""
+- Combine 2-4 concepts with AND. Too many ANDs returns nothing; too few returns noise.
+- arXiv relevance ranking under-weights older seminal papers. If you know foundational papers
+  for this topic, dedicate one query to fetching them by exact title, e.g.
+  ti:"Exploration by Random Network Distillation" OR ti:"Curiosity-driven Exploration by Self-supervised Prediction"
+  When a reviewer names specific missing papers, fetch those by title."""
 
 
 def run_planner(

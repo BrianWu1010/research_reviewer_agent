@@ -35,12 +35,17 @@ The loop stops when the Critic is satisfied, when a round finds no new relevant 
 ```bash
 conda env create -f environment.yml
 conda activate research_agents
-cp .env.example .env   # then put your OpenAI API key in .env
+cp .env.example .env   # then add your API key
 ```
 
 Or with pip: `pip install -r requirements.txt`.
 
-Any OpenAI-compatible endpoint works by setting `OPENAI_BASE_URL` and `OPENAI_MODEL`.
+Supported LLM providers:
+
+- **Anthropic (Claude)**: set `ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`).
+- **OpenAI**: set `OPENAI_API_KEY` (default model `gpt-4.1-mini`). Any OpenAI-compatible endpoint (OpenRouter, Ollama, ...) works via `OPENAI_BASE_URL`.
+
+If both keys are set, choose one with `LLM_PROVIDER=anthropic|openai` or `--provider`.
 
 ## Usage
 
@@ -56,8 +61,9 @@ Options:
 | `--queries-per-round` | 4 | arXiv queries the Planner writes per round |
 | `--results-per-query` | 10 | arXiv results fetched per query |
 | `--min-score` | 6 | Relevance cutoff (0-10) for a paper to be used |
-| `--max-papers` | 12 | Maximum papers cited in the answer |
-| `--model` | `$OPENAI_MODEL` or `gpt-4.1-mini` | Chat model |
+| `--max-papers` | 20 | Maximum papers cited in the answer |
+| `--provider` | `$LLM_PROVIDER`, else inferred from API keys | `anthropic` or `openai` |
+| `--model` | provider default | Chat model |
 | `--output-dir` | `output` | Where reports are written |
 
 ## Output
@@ -66,6 +72,8 @@ Each run creates `output/<timestamp>_<question-slug>/` containing:
 
 - `report.md`: the cited answer, the Critic's assessment, references, per-paper notes, and the search log.
 - `run.json`: the full trace, including every candidate paper with its relevance score and reason. This is useful for debugging retrieval.
+
+See [`examples/curiosity-exploration-rl.md`](examples/curiosity-exploration-rl.md) for a real report. It took 3 rounds and about 2 minutes with Claude Sonnet 5.5.
 
 ## Tests
 

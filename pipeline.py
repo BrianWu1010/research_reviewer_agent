@@ -16,7 +16,7 @@ class ReviewConfig:
     queries_per_round: int = 4
     results_per_query: int = 10
     min_score: int = 6
-    max_papers: int = 12
+    max_papers: int = 20
 
 
 @dataclass

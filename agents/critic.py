@@ -9,9 +9,14 @@ Evaluate:
 - Grounding: are claims supported by the cited papers, without overreach?
 - Evidence strength: is it based on enough relevant papers, or on one or two?
 
-verdict = "sufficient" if a researcher would find this a solid starting answer; otherwise "needs_more".
-If "needs_more", list specific missing_aspects (topics, method families, or evidence types)
-that a new literature search should target. Keep each aspect short and searchable."""
+- Foundations: are the seminal / most-cited works on this topic among the papers used?
+
+verdict = "sufficient" only if a researcher would find this a solid starting answer AND no
+foundational work or major facet of the question is missing. If you can name important missing
+papers or facets, the verdict must be "needs_more".
+If "needs_more", list specific missing_aspects that a new literature search should target:
+exact titles of missing papers where you know them, otherwise topics, method families, or evidence types.
+Keep each aspect short and searchable."""
 
 
 def run_critic(question: str, answer: str, papers: list[Paper]) -> Critique:

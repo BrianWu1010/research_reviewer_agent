@@ -2,11 +2,11 @@ import argparse
 import os
 import sys
 
-import openai
 from rich.console import Console
 
 from pipeline import ReviewConfig, run_review
 from report import write_report
+from tools.llm import API_ERRORS, current_model, provider
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,15 +18,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--results-per-query", type=int, default=defaults.results_per_query)
     parser.add_argument("--min-score", type=int, default=defaults.min_score, help="Relevance cutoff, 0-10")
     parser.add_argument("--max-papers", type=int, default=defaults.max_papers)
-    parser.add_argument("--model", help="OpenAI model (default: $OPENAI_MODEL or gpt-4.1-mini)")
+    parser.add_argument("--provider", choices=["openai", "anthropic"], help="Default: $LLM_PROVIDER, else by API key")
+    parser.add_argument("--model", help="Model name (default depends on provider)")
     parser.add_argument("--output-dir", default="output")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.provider:
+        os.environ["LLM_PROVIDER"] = args.provider
     if args.model:
-        os.environ["OPENAI_MODEL"] = args.model
+        os.environ["LLM_MODEL"] = args.model
 
     console = Console()
     question = args.question or console.input("[bold]Research question:[/bold] ").strip()
@@ -40,10 +43,11 @@ def main() -> None:
         min_score=args.min_score,
         max_papers=args.max_papers,
     )
+    console.print(f"Using {provider()} / {current_model()}")
     try:
         result = run_review(question, config, log=console.print)
-    except openai.APIStatusError as err:
-        sys.exit(f"OpenAI API error ({err.status_code}): {err.message}")
+    except API_ERRORS as err:
+        sys.exit(f"{provider()} API error ({err.status_code}): {err.message}")
     run_dir = write_report(result, args.output_dir)
 
     console.print(f"\n[green]Report written to {run_dir / 'report.md'}[/green]")
